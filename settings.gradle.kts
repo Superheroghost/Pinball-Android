@@ -16,4 +16,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "NeonNexusPinball"
 
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 include(":app", ":jbox2d")
