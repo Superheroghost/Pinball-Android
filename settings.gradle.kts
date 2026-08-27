@@ -7,19 +7,13 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
     }
 }
 
-rootProject.name = ("kotlin-android-template")
+rootProject.name = "NeonNexusPinball"
 
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
-include(
-    "app",
-    "library-android",
-    "library-compose",
-    "library-kotlin"
-)
+include(":app", ":jbox2d")

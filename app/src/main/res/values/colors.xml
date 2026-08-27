@@ -1,6 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#6200EE</color>
-    <color name="colorPrimaryDark">#3700B3</color>
-    <color name="colorAccent">#03DAC5</color>
+    <color name="neon_cyan">#FF22E7FF</color>
+    <color name="neon_violet">#FF7A5CFF</color>
+    <color name="neon_magenta">#FFFF3DBE</color>
+    <color name="neon_gold">#FFFFB454</color>
+    <color name="ink">#FF060913</color>
+    <color name="ink_panel">#E60B1020</color>
+    <color name="ink_line">#FF1C2742</color>
+    <color name="text_dim">#FF8B96B8</color>
+    <color name="text_bright">#FFEFF4FF</color>
 </resources>
