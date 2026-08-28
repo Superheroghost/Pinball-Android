@@ -156,13 +156,6 @@ open class WindowInsets {
         fun systemBars(): Int = 1
         fun displayCutout(): Int = 2
     }
-
-    companion object {
-        const val ROUNDED_CORNER_TOP_LEFT = 0
-        const val ROUNDED_CORNER_TOP_RIGHT = 1
-        const val ROUNDED_CORNER_BOTTOM_RIGHT = 2
-        const val ROUNDED_CORNER_BOTTOM_LEFT = 3
-    }
 }
 
 open class Insets(
@@ -172,4 +165,12 @@ open class Insets(
     val bottom: Int = 0,
 )
 
-open class RoundedCorner(val radius: Int = 0)
+open class RoundedCorner(val radius: Int = 0) {
+    companion object {
+        // Mirrors android.view.RoundedCorner (API 31+), per AOSP android-16.0.0_r1.
+        const val POSITION_TOP_LEFT = 0
+        const val POSITION_TOP_RIGHT = 1
+        const val POSITION_BOTTOM_RIGHT = 2
+        const val POSITION_BOTTOM_LEFT = 3
+    }
+}

@@ -6,6 +6,7 @@ import android.graphics.Typeface
 import android.os.Build
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.RoundedCorner
 import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -49,8 +50,13 @@ class HudView(context: Context) : FrameLayout(context) {
             top = bars.top
             right = bars.right
             bottom = bars.bottom
-            cornerBottomLeft =
-                insets.getRoundedCorner(WindowInsets.ROUNDED_CORNER_BOTTOM_LEFT)?.radius ?: 0
+            // Rounded-corner data arrived in S (31), one release after the
+            // Type-based inset getters.
+            cornerBottomLeft = if (Build.VERSION.SDK_INT >= 31) {
+                insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
+            } else {
+                0
+            }
         } else {
             @Suppress("DEPRECATION")
             left = insets.systemWindowInsetLeft
