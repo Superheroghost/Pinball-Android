@@ -6,6 +6,9 @@ open class Context {
     open val resources: Resources = Resources()
     open val applicationContext: Context get() = this
     open val cacheDir: java.io.File = java.io.File(".")
+    open val filesDir: java.io.File = java.io.File(".")
+
+    open fun getExternalFilesDir(type: String?): java.io.File = java.io.File(".")
 
     open fun getSharedPreferences(name: String?, mode: Int): SharedPreferences = SharedPreferences()
 

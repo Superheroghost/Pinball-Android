@@ -49,6 +49,7 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
 
         input = InputState()
         sim = GameSim()
@@ -188,19 +189,33 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
             GameController.HAPTIC_BIG -> 36
             else -> 8
         }
-        if (v.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= 26) {
-                v.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                v.vibrate(ms.toLong())
+        // Feedback runs on the GL thread inside the sim event pump: a device
+        // vibrator failure must degrade to "no rumble", never a dead game.
+        try {
+            if (v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= 26) {
+                    v.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(ms.toLong())
+                }
             }
+        } catch (t: Throwable) {
+            android.util.Log.w("NeonFx", "haptic failed (kind=$kind)", t)
+            hapticsEnabled = false
         }
     }
 
     override fun sound(kind: Int, param: Float) {
         if (!soundEnabled) return
-        audio?.play(kind, param)
+        // Same rule as haptics: audio runs on the GL thread inside the event
+        // pump and may never take the game down with it.
+        try {
+            audio?.play(kind, param)
+        } catch (t: Throwable) {
+            android.util.Log.w("NeonFx", "sound failed (kind=$kind)", t)
+            soundEnabled = false
+        }
     }
 
     // ------------------------------------------------------------ lifecycle

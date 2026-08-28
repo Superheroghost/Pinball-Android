@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
         settings = SettingsStore(this)
 
         val root = LinearLayout(this).apply {

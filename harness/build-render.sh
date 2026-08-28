@@ -30,6 +30,7 @@ SRC="$(mktemp)"
   echo "$APP/game/GameSession.kt"
   echo "$APP/game/GameLoop.kt"
   echo "$APP/game/InputState.kt"
+  echo "$APP/game/GameController.kt"
   echo "$APP/game/HudView.kt"
   find "$ROOT/harness/android-stubs" -name '*.kt'
   find "$ROOT/harness/render-src" -name '*.kt'
