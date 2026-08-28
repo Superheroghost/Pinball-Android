@@ -72,6 +72,9 @@ class PinballRenderer(
     /** False if the shader could not be built; drawing is skipped. */
     private var shaderReady = false
 
+    /** Guards the one-shot first-frame diagnostic log. */
+    private var diagnosticsLogged = false
+
     /** Interpolation alpha for the current frame. */
     private var alpha = 1f
 
@@ -104,6 +107,11 @@ class PinballRenderer(
         if (!shaderReady) {
             android.util.Log.e(TAG, "vertex-colour shader failed to build; table cannot render")
         }
+        android.util.Log.i(
+            TAG,
+            "surface created: program=${shader.program} renderer=${GLES20.glGetString(GLES20.GL_RENDERER)} " +
+                "gl=${GLES20.glGetString(GLES20.GL_VERSION)}",
+        )
         gameLoop.start()
     }
 
@@ -173,6 +181,24 @@ class PinballRenderer(
         drawParticles()
         drawPopups()
         drawVignette()
+        logFirstFrame()
+    }
+
+    /**
+     * One-shot diagnostic: if the table ever fails to appear this records
+     * whether the program was bound, what the camera resolved to and whether
+     * GL reported an error, instead of leaving a silently black surface.
+     */
+    private fun logFirstFrame() {
+        if (diagnosticsLogged) return
+        diagnosticsLogged = true
+        android.util.Log.i(
+            TAG,
+            "first frame: ${camera.screenWidth}x${camera.screenHeight} program=${shader.program} " +
+                "world=[${"%.3f".format(camera.worldLeft)}, ${"%.3f".format(camera.worldBottom)} .. " +
+                "${"%.3f".format(camera.worldRight)}, ${"%.3f".format(camera.worldTop)}] " +
+                "balls=${sim.balls.size} glError=${GLES20.glGetError()}",
+        )
     }
 
     private fun normalBlend() = GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
