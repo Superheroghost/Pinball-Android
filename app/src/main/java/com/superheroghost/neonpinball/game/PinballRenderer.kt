@@ -14,6 +14,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
+private const val TAG = "NeonRenderer"
+
 /** Palette. */
 object Palette {
     const val BG_TOP_R = 0.016f
@@ -67,6 +69,9 @@ class PinballRenderer(
     private var timeS = 0f
     private var lastNanos = 0L
 
+    /** False if the shader could not be built; drawing is skipped. */
+    private var shaderReady = false
+
     /** Interpolation alpha for the current frame. */
     private var alpha = 1f
 
@@ -95,7 +100,10 @@ class PinballRenderer(
         GLES20.glClearColor(0.008f, 0.010f, 0.020f, 1f)
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glEnable(GLES20.GL_BLEND)
-        shader.compile()
+        shaderReady = shader.compile()
+        if (!shaderReady) {
+            android.util.Log.e(TAG, "vertex-colour shader failed to build; table cannot render")
+        }
         gameLoop.start()
     }
 
@@ -146,6 +154,12 @@ class PinballRenderer(
 
     private fun draw() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+
+        // The vertex-colour program must be current *before* any geometry is
+        // submitted. glDrawArrays with program 0 bound is a no-op, so without
+        // this the whole table silently disappears behind the clear colour.
+        if (!shaderReady) return
+        shader.use(camera.viewProjMatrix())
 
         drawBackground()
         drawPlayfield()

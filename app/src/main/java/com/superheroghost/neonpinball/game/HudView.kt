@@ -48,6 +48,10 @@ class HudView(context: Context) : FrameLayout(context) {
         val msgParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER)
         msgParams.bottomMargin = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 90f, resources.displayMetrics).toInt()
         addView(messageView, msgParams)
+
+        // System bars are drawn over the app (edge-to-edge); without this the
+        // score hides under the status bar and BALL n is clipped by the nav bar.
+        applySystemBarPadding()
     }
 
     private fun tv(text: String, sizeSp: Float, color: Int, face: Typeface): TextView {

@@ -12,6 +12,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.superheroghost.neonpinball.game.HudView
+import com.superheroghost.neonpinball.game.applySystemBarPadding
 
 /**
  * Title screen: PLAY, HOW TO PLAY, HIGH SCORES, SETTINGS. Standard Android
@@ -67,6 +68,7 @@ class MainActivity : Activity() {
         root.addView(menuButton("HIGH SCORES") { showPanel(highScoresText()) })
         root.addView(menuButton("SETTINGS") { showSettings() })
         root.addView(bestView)
+        root.applySystemBarPadding(8f)
 
         setContentView(root)
         window.navigationBarColor = 0xFF060913.toInt()
@@ -152,6 +154,7 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
+        overlay.applySystemBarPadding(8f)
     }
 
     @SuppressLint("SetTextI18n")
@@ -202,6 +205,7 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.MATCH_PARENT,
             ),
         )
+        overlay.applySystemBarPadding(8f)
     }
 
     private fun closeButton(onClick: () -> Unit): Button {
