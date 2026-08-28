@@ -57,9 +57,17 @@ class GameLoop(private val sim: GameSim) {
         sim.table.flipperL.setPressed(input.leftFlipper)
         sim.table.flipperR.setPressed(input.rightFlipper)
         if (input.plungerHeld) {
+            // Hold-to-charge launch: power ramps up while the button is held.
+            input.plungerPull = (input.plungerPull + TableTuning.FIXED_DT / CHARGE_SECONDS).coerceAtMost(1f)
             sim.setPlungerPull(input.plungerPull)
         } else {
+            input.plungerPull = 0f
             sim.setPlungerHeld(false)
         }
+    }
+
+    companion object {
+        /** Seconds of holding the LAUNCH button for a full-power plunge. */
+        const val CHARGE_SECONDS = 1.1f
     }
 }

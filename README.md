@@ -63,7 +63,7 @@ adjust the `TOOLS` env var as needed.)
 ## Controls
 
 - Touch left half: left flipper; right half: right flipper.
-- Right edge of the lower screen: pull down and release to launch.
+- LAUNCH button (bottom-right): hold to charge the power meter, release to launch.
 
 ## Ruleset
 

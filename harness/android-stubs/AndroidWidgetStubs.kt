@@ -43,6 +43,20 @@ open class FrameLayout(context: Context) : ViewGroup(context) {
 }
 
 open class LinearLayout(context: Context) : ViewGroup(context) {
+    class LayoutParams : ViewGroup.LayoutParams {
+        companion object {
+            const val WRAP_CONTENT = ViewGroup.LayoutParams.WRAP_CONTENT
+            const val MATCH_PARENT = ViewGroup.LayoutParams.MATCH_PARENT
+        }
+
+        var topMargin = 0
+        var bottomMargin = 0
+        var leftMargin = 0
+        var rightMargin = 0
+
+        constructor(width: Int, height: Int) : super(width, height)
+    }
+
     var orientation: Int = HORIZONTAL
     var gravity: Int = Gravity.TOP
 

@@ -43,6 +43,7 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
     private var hapticsEnabled = true
     private var soundEnabled = true
 
+    @Volatile
     private var paused = false
 
     @SuppressLint("ClickableViewAccessibility")
@@ -86,14 +87,20 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
         surface.preserveEGLContextOnPause = true
 
         renderer.onFrame = { dt ->
+            // All simulation mutation happens on the GL thread: the renderer
+            // freezes stepping while paused, and the session consumes any
+            // pending new-game request here instead of the UI thread doing it.
+            renderer.simRunning = !paused
             if (!paused) {
                 session.update(dt)
                 controller.frameTick(dt)
             }
+            hud.setPlungerPower(sim.plungerPull)
         }
         controller.attach(renderer)
 
         hud = HudView(this)
+        hud.attachInput(input)
         hud.setHighScore(SettingsStore(this).highScores()[0])
         val root = FrameLayout(this)
         root.addView(surface, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -148,7 +155,9 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
         runOnUiThread {
             hud.showMessage("NEON NEXUS", 1.4f)
         }
-        session.startGame()
+        // Queued here, executed by session.update() on the GL thread — never
+        // mutate the simulation directly from the UI thread.
+        session.requestNewGame()
     }
 
     // ------------------------------------------------------------ feedback

@@ -2,13 +2,18 @@ package com.superheroghost.neonpinball.game
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.os.Build
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.RoundedCorner
+import android.view.View
 import android.view.WindowInsets
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import java.util.Locale
 
@@ -29,19 +34,25 @@ class HudView(context: Context) : FrameLayout(context) {
     private val ballView: TextView
     private val messageView: TextView
     private val highView: TextView
+    private val meterView: MeterView
+    private val launchButton: TextView
 
     private var messageRunnable: Runnable? = null
+    private var attachedInput: InputState? = null
 
     /** Base gutter, in px; system insets are added on top of it. */
     private val basePad =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, resources.displayMetrics).toInt()
+
+    private lateinit var launchRowParams: LayoutParams
 
     override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
         val left: Int
         val top: Int
         val right: Int
         val bottom: Int
-        val cornerBottomLeft: Int
+        var cornerBottomLeft = 0
+        var cornerBottomRight = 0
         if (Build.VERSION.SDK_INT >= 30) {
             val bars = insets.getInsets(
                 WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
@@ -52,10 +63,9 @@ class HudView(context: Context) : FrameLayout(context) {
             bottom = bars.bottom
             // Rounded-corner data arrived in S (31), one release after the
             // Type-based inset getters.
-            cornerBottomLeft = if (Build.VERSION.SDK_INT >= 31) {
-                insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
-            } else {
-                0
+            if (Build.VERSION.SDK_INT >= 31) {
+                cornerBottomLeft = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
+                cornerBottomRight = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT)?.radius ?: 0
             }
         } else {
             @Suppress("DEPRECATION")
@@ -78,6 +88,12 @@ class HudView(context: Context) : FrameLayout(context) {
         val labelBottomEdge = bottom + basePad
         val cornerClearance = (cornerBottomLeft - labelBottomEdge).coerceAtLeast(0)
         ballView.setPadding(basePad + cornerClearance, basePad, basePad, basePad)
+
+        // Same clearance for the launch cluster on the right corner.
+        if (::launchRowParams.isInitialized) {
+            val rowClearance = (cornerBottomRight - labelBottomEdge).coerceAtLeast(0)
+            launchRowParams.rightMargin = rowClearance
+        }
 
         return super.onApplyWindowInsets(insets)
     }
@@ -106,7 +122,56 @@ class HudView(context: Context) : FrameLayout(context) {
         val msgParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER)
         msgParams.bottomMargin = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 90f, resources.displayMetrics).toInt()
         addView(messageView, msgParams)
+
+        // Launch cluster, bottom-right: vertical power meter + LAUNCH button.
+        // Hold the button to charge; release to fire the plunger.
+        val launchRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        meterView = MeterView(context)
+        val meterParams = LinearLayout.LayoutParams(dp(14f), dp(110f))
+        meterParams.rightMargin = dp(10f)
+        launchRow.addView(meterView, meterParams)
+
+        launchButton = tv("LAUNCH", 15f, COLOR_BRIGHT, Typeface.create("sans-serif-condensed", Typeface.BOLD))
+        launchButton.gravity = Gravity.CENTER
+        launchButton.setBackgroundColor(0x3322E7FF)
+        launchButton.setPadding(dp(20f), dp(16f), dp(20f), dp(16f))
+        launchRow.addView(
+            launchButton,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT),
+        )
+        launchButton.setOnTouchListener { _, ev ->
+            val inp = attachedInput
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    inp?.plungerPull = 0f
+                    inp?.plungerHeld = true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    inp?.plungerHeld = false
+                }
+            }
+            true
+        }
+
+        launchRowParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.BOTTOM or Gravity.END)
+        addView(launchRow, launchRowParams)
     }
+
+    /** Wire the launch button to the shared input state. */
+    fun attachInput(input: InputState) {
+        attachedInput = input
+    }
+
+    /** Power-meter level 0..1; safe to call from the GL thread. */
+    fun setPlungerPower(power: Float) {
+        meterView.power = power
+    }
+
+    private fun dp(v: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v, resources.displayMetrics).toInt()
 
     private fun tv(text: String, sizeSp: Float, color: Int, face: Typeface): TextView {
         val tv = TextView(context)
@@ -156,5 +221,50 @@ class HudView(context: Context) : FrameLayout(context) {
             }
             return score.toString()
         }
+    }
+}
+
+/** Vertical launch-power meter; fill rises with the held charge. */
+private class MeterView(context: Context) : View(context) {
+    var power = 0f
+        set(value) {
+            val v = value.coerceIn(0f, 1f)
+            if (v != field) {
+                field = v
+                postInvalidate()
+            }
+        }
+
+    private val bgPaint = Paint().apply { color = 0x55101A33 }
+    private val fillPaint = Paint()
+    private val framePaint = Paint().apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        color = 0xFF22E7FF.toInt()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        val w = width.toFloat()
+        val h = height.toFloat()
+        if (w <= 0f || h <= 0f) return
+        val r = w * 0.5f
+        canvas.drawRoundRect(0f, 0f, w, h, r, r, bgPaint)
+        if (power > 0.01f) {
+            fillPaint.color = colorFor(power)
+            val fh = h * power
+            canvas.drawRoundRect(0f, h - fh, w, h, r, r, fillPaint)
+        }
+        canvas.drawRoundRect(1.5f, 1.5f, w - 1.5f, h - 1.5f, r, r, framePaint)
+    }
+
+    /** Cyan at low power, gold at full power. */
+    private fun colorFor(p: Float): Int {
+        val r = 0.13f + (1.00f - 0.13f) * p
+        val g = 0.90f + (0.71f - 0.90f) * p
+        val b = 1.00f + (0.33f - 1.00f) * p
+        return (0xFF shl 24) or
+            ((r * 255).toInt().coerceIn(0, 255) shl 16) or
+            ((g * 255).toInt().coerceIn(0, 255) shl 8) or
+            (b * 255).toInt().coerceIn(0, 255)
     }
 }

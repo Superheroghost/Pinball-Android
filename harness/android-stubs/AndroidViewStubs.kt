@@ -12,6 +12,7 @@ object Gravity {
     const val CENTER_HORIZONTAL = 0x01
     const val CENTER = CENTER_VERTICAL or CENTER_HORIZONTAL
     const val START = 0x00800003
+    const val END = 0x00800005
 }
 
 open class Window {
@@ -58,10 +59,18 @@ open class View {
 
     open fun onTouchEvent(event: MotionEvent): Boolean = false
     open fun onApplyWindowInsets(insets: WindowInsets): WindowInsets = insets
+    protected open fun onDraw(canvas: android.graphics.Canvas) {}
+
+    fun postInvalidate() {}
 
     fun animate(): ViewPropertyAnimator = ViewPropertyAnimator()
     fun setOnClickListener(listener: OnClickListener?) {}
     fun setOnHoverListener(listener: OnHoverListener?) {}
+    fun setOnTouchListener(listener: OnTouchListener?) {}
+
+    fun interface OnTouchListener {
+        fun onTouch(v: View, event: MotionEvent): Boolean
+    }
 
     fun interface OnClickListener {
         fun onClick(v: View)

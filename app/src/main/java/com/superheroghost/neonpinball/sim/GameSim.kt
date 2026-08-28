@@ -51,6 +51,9 @@ class GameSim(debugStage: Int = 0) : SimActions {
 
     /** Debug switches. */
     var debugSlowMotion = false
+
+    /** Debug: disable the ball-search watchdog (lets probes see raw wedges). */
+    var ballSearchEnabled = true
     var stuckNudges = 0
         private set
     var escapedBalls = 0
@@ -253,7 +256,7 @@ class GameSim(debugStage: Int = 0) : SimActions {
             // 3.5s anywhere on the playfield, nudge it; escalate if it stays
             // stuck; relocate as a last resort. Position-based, so a ball
             // cradled on a buzzing flipper motor still counts as stuck.
-            if (b.state == BallState.LIVE && !b.onRamp) {
+            if (b.state == BallState.LIVE && !b.onRamp && ballSearchEnabled) {
                 if (lowSpeedTime[b.id] == 0f) {
                     // New slow period: anchor the stuck origin here.
                     stuckCheckX[b.id] = p.x

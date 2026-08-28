@@ -61,6 +61,14 @@ class PinballRenderer(
     /** Visual intensity scale (settings: reduced effects). */
     var fxScale = 1f
 
+    /**
+     * Whether the simulation steps at all. The host clears this while paused
+     * so the world (and its physics bodies) is frozen instead of being
+     * stepped behind the pause overlay.
+     */
+    @Volatile
+    var simRunning = true
+
     /** White flash amount 0..1 (set by game events). */
     var flash = 0f
 
@@ -118,9 +126,14 @@ class PinballRenderer(
         timeS += dt
 
         // Fixed-step the simulation on the render thread (single-threaded
-        // game+render keeps determinism and avoids sync overhead).
-        gameLoop.update(dt)
-        alpha = gameLoop.interpolationAlpha
+        // game+render keeps determinism and avoids sync overhead). While the
+        // host is paused the world is frozen entirely.
+        if (simRunning) {
+            gameLoop.update(dt)
+            alpha = gameLoop.interpolationAlpha
+        } else {
+            alpha = 1f
+        }
         onFrame?.invoke(dt)
 
         camera.update(dt)
@@ -365,7 +378,7 @@ class PinballRenderer(
         run {
             val lit = rules.extraBallLit
             val a = if (lit) 0.45f + 0.55f * blink else 0.1f
-            val x = 0.073f
+            val x = 0.078f
             val y = 0.240f
             batch.tri(x, y - 0.008f, x - 0.007f, y + 0.005f, x + 0.007f, y + 0.005f, if (lit) Palette.GOLD_R else Palette.CYAN_R, if (lit) Palette.GOLD_G else Palette.CYAN_G, if (lit) Palette.GOLD_B else Palette.CYAN_B, a)
             batch.tri(x, y - 0.014f, x - 0.007f, y - 0.003f, x + 0.007f, y - 0.003f, if (lit) Palette.GOLD_R else Palette.CYAN_R, if (lit) Palette.GOLD_G else Palette.CYAN_G, if (lit) Palette.GOLD_B else Palette.CYAN_B, a * 0.6f)

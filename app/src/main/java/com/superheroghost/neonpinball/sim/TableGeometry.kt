@@ -160,14 +160,14 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
         for (i in arch.indices step 2) outerBoundary.add(Vec2(arch[i], arch[i + 1]))
 
         // Side walls up to the arch springing points.
-        wall(floatArrayOf(0f, 0.055f, 0f, t.ARCH_CY))
-        wall(floatArrayOf(t.TABLE_W, 0.055f, t.TABLE_W, t.ARCH_CY))
-        // Playfield floor: two segments with the DRAIN GAP between the outer
-        // funnel ends. Balls over the gap fall through to DRAIN_Y and drain.
+        wall(floatArrayOf(0f, 0.070f, 0f, t.ARCH_CY))
+        wall(floatArrayOf(t.TABLE_W, 0.070f, t.TABLE_W, t.ARCH_CY))
+        // Playfield floor: sloped ~11 degrees towards the DRAIN GAP so a ball
+        // can never rest on it; balls over the gap fall to DRAIN_Y and drain.
         val drainGapL = 0.118f
         val drainGapR = t.SHOOTER_X_INNER - 0.118f
-        wall(floatArrayOf(0f, 0.055f, drainGapL, 0.055f), record = false)
-        wall(floatArrayOf(drainGapR, 0.055f, t.SHOOTER_X_INNER, 0.055f), record = false)
+        wall(floatArrayOf(0f, 0.070f, drainGapL, 0.046f), record = false)
+        wall(floatArrayOf(drainGapR, 0.046f, t.SHOOTER_X_INNER, 0.070f), record = false)
 
         // Shooter lane: inner wall + floor.
         wall(floatArrayOf(t.SHOOTER_X_INNER, 0.055f, t.SHOOTER_X_INNER, 0.870f))
@@ -336,7 +336,9 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
         val mirror = TableTuning.SHOOTER_X_INNER
         val rx = { v: Float -> mirror - v }
 
-        // Outer funnels from the side walls down to the drain.
+        // Outer funnels from the side walls down towards the drain. The tail
+        // ends high enough above the sloped floor (~37 mm) that balls rolling
+        // to the gap pass cleanly underneath it.
         wall(
             floatArrayOf(
                 0f, 0.345f,
@@ -345,8 +347,7 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
                 0.058f, 0.205f,
                 0.062f, 0.150f,
                 0.075f, 0.095f,
-                0.093f, 0.060f,
-                0.118f, 0.048f,
+                0.082f, 0.090f,
             ),
         )
         wall(
@@ -357,38 +358,49 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
                 rx(0.058f), 0.205f,
                 rx(0.062f), 0.150f,
                 rx(0.075f), 0.095f,
-                rx(0.093f), 0.060f,
-                rx(0.118f), 0.048f,
+                rx(0.082f), 0.090f,
             ),
         )
 
-        // Outlane/inlane dividers with rounded tops.
-        wall(floatArrayOf(0.088f, 0.170f, 0.088f, 0.295f))
-        post(0.088f, 0.303f, 0.008f)
-        wall(floatArrayOf(rx(0.088f), 0.170f, rx(0.088f), 0.295f))
-        post(rx(0.088f), 0.303f, 0.008f)
+        // Orbit-return deflectors: a ball descending the left orbit channel
+        // used to drop straight into the outlane mouth (wedge/drain). This
+        // roof catches it and delivers it over the divider into the inlane;
+        // the outlane stays reachable through the gap beside the tip post.
+        wall(floatArrayOf(0f, 0.440f, 0.040f, 0.380f, 0.085f, 0.352f))
+        post(0.085f, 0.352f, 0.005f)
+        wall(floatArrayOf(rx(0f), 0.440f, rx(0.040f), 0.380f, rx(0.085f), 0.352f))
+        post(rx(0.085f), 0.352f, 0.005f)
 
-        // Inlane guides ending above the flipper bases.
+        // Outlane/inlane dividers with rounded tops and rounded lower tips.
+        // Lane widths keep >= ~35 mm of clear passage for the 27 mm ball.
+        wall(floatArrayOf(0.098f, 0.180f, 0.098f, 0.295f))
+        post(0.098f, 0.303f, 0.008f)
+        post(0.098f, 0.176f, 0.005f)
+        wall(floatArrayOf(rx(0.098f), 0.180f, rx(0.098f), 0.295f))
+        post(rx(0.098f), 0.303f, 0.008f)
+        post(rx(0.098f), 0.176f, 0.005f)
+
+        // Inlane guides; the lower taper terminates *inside* the flipper base
+        // circle so there is no pocket between guide and flipper for a ball
+        // to wedge in — it lands on the flipper and rolls to the centre.
         wall(
             floatArrayOf(
-                0.116f, 0.300f,
-                0.116f, 0.190f,
-                0.1225f, 0.163f,
-                0.1310f, 0.152f,
-                0.1380f, 0.1485f,
+                0.134f, 0.300f,
+                0.134f, 0.200f,
+                0.139f, 0.170f,
+                0.1425f, 0.160f,
             ),
         )
-        post(0.116f, 0.3075f, 0.0075f)
+        post(0.134f, 0.3075f, 0.0075f)
         wall(
             floatArrayOf(
-                rx(0.116f), 0.300f,
-                rx(0.116f), 0.190f,
-                rx(0.1225f), 0.163f,
-                rx(0.1310f), 0.152f,
-                rx(0.1380f), 0.1485f,
+                rx(0.134f), 0.300f,
+                rx(0.134f), 0.200f,
+                rx(0.139f), 0.170f,
+                rx(0.1425f), 0.160f,
             ),
         )
-        post(rx(0.116f), 0.3075f, 0.0075f)
+        post(rx(0.134f), 0.3075f, 0.0075f)
 
         // Slingshots: rubber face from the inner-bottom vertex up to the
         // outer-top vertex, kicking towards the centre.
@@ -397,11 +409,11 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
             Slingshot(
                 physics, Ids.SLING_L, left = true,
                 verts = floatArrayOf(
-                    0.124f, 0.200f, // outer-bottom
-                    0.190f, 0.200f, // inner-bottom
-                    0.124f, 0.288f, // outer-top
+                    0.140f, 0.200f, // outer-bottom
+                    0.206f, 0.200f, // inner-bottom
+                    0.140f, 0.288f, // outer-top
                 ),
-                ax = 0.190f, ay = 0.200f, bx = 0.124f, by = 0.288f,
+                ax = 0.206f, ay = 0.200f, bx = 0.140f, by = 0.288f,
                 kickX = 0.815f, kickY = 0.584f,
             ),
         )
@@ -409,11 +421,11 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
             Slingshot(
                 physics, Ids.SLING_R, left = false,
                 verts = floatArrayOf(
-                    rx(0.124f), 0.200f,
-                    rx(0.190f), 0.200f,
-                    rx(0.124f), 0.288f,
+                    rx(0.140f), 0.200f,
+                    rx(0.206f), 0.200f,
+                    rx(0.140f), 0.288f,
                 ),
-                ax = rx(0.190f), ay = 0.200f, bx = rx(0.124f), by = 0.288f,
+                ax = rx(0.206f), ay = 0.200f, bx = rx(0.140f), by = 0.288f,
                 kickX = -0.815f, kickY = 0.584f,
             ),
         )
@@ -423,11 +435,11 @@ class TableGeometry(private val physics: PhysicsWorld, debugStage: Int = 0) {
         flipperL = Flipper(physics, 0.1425f, TableTuning.FLIPPER_PIVOT_Y, left = true)
         flipperR = Flipper(physics, rx(0.1425f), TableTuning.FLIPPER_PIVOT_Y, left = false)
 
-        // Lane rollovers.
-        rollovers[Ids.INLANE_L] = Rollover(physics, Ids.INLANE_L, 0.102f, 0.215f, 0.026f, 0.02f)
-        rollovers[Ids.INLANE_R] = Rollover(physics, Ids.INLANE_R, rx(0.102f), 0.215f, 0.026f, 0.02f)
-        rollovers[Ids.OUTLANE_L] = Rollover(physics, Ids.OUTLANE_L, 0.073f, 0.205f, 0.020f, 0.02f)
-        rollovers[Ids.OUTLANE_R] = Rollover(physics, Ids.OUTLANE_R, rx(0.073f), 0.205f, 0.020f, 0.02f)
+        // Lane rollovers (centred in the widened lanes).
+        rollovers[Ids.INLANE_L] = Rollover(physics, Ids.INLANE_L, 0.116f, 0.215f, 0.026f, 0.02f)
+        rollovers[Ids.INLANE_R] = Rollover(physics, Ids.INLANE_R, rx(0.116f), 0.215f, 0.026f, 0.02f)
+        rollovers[Ids.OUTLANE_L] = Rollover(physics, Ids.OUTLANE_L, 0.078f, 0.205f, 0.020f, 0.02f)
+        rollovers[Ids.OUTLANE_R] = Rollover(physics, Ids.OUTLANE_R, rx(0.078f), 0.205f, 0.020f, 0.02f)
     }
 
     /** Ball start position on the plunger. */

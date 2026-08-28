@@ -99,7 +99,7 @@ class MainActivity : Activity() {
     private fun howToText(): String = """
         LEFT HALF OF SCREEN — left flipper
         RIGHT HALF — right flipper
-        RIGHT EDGE, LOWER AREA — pull down & release to launch
+        LAUNCH BUTTON — hold to charge power, release to launch
 
         N·E·X LANES complete to raise the bonus multiplier
         STANDUPS + LANES + DROP BANK light the LOCK
