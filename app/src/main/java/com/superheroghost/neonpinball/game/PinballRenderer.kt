@@ -14,6 +14,8 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 
+private const val TAG = "NeonRenderer"
+
 /** Palette. */
 object Palette {
     const val BG_TOP_R = 0.016f
@@ -67,6 +69,12 @@ class PinballRenderer(
     private var timeS = 0f
     private var lastNanos = 0L
 
+    /** False if the shader could not be built; drawing is skipped. */
+    private var shaderReady = false
+
+    /** Guards the one-shot first-frame diagnostic log. */
+    private var diagnosticsLogged = false
+
     /** Interpolation alpha for the current frame. */
     private var alpha = 1f
 
@@ -95,7 +103,15 @@ class PinballRenderer(
         GLES20.glClearColor(0.008f, 0.010f, 0.020f, 1f)
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glEnable(GLES20.GL_BLEND)
-        shader.compile()
+        shaderReady = shader.compile()
+        if (!shaderReady) {
+            android.util.Log.e(TAG, "vertex-colour shader failed to build; table cannot render")
+        }
+        android.util.Log.i(
+            TAG,
+            "surface created: program=${shader.program} renderer=${GLES20.glGetString(GLES20.GL_RENDERER)} " +
+                "gl=${GLES20.glGetString(GLES20.GL_VERSION)}",
+        )
         gameLoop.start()
     }
 
@@ -147,6 +163,12 @@ class PinballRenderer(
     private fun draw() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
+        // The vertex-colour program must be current *before* any geometry is
+        // submitted. glDrawArrays with program 0 bound is a no-op, so without
+        // this the whole table silently disappears behind the clear colour.
+        if (!shaderReady) return
+        shader.use(camera.viewProjMatrix())
+
         drawBackground()
         drawPlayfield()
         drawLanes()
@@ -159,6 +181,24 @@ class PinballRenderer(
         drawParticles()
         drawPopups()
         drawVignette()
+        logFirstFrame()
+    }
+
+    /**
+     * One-shot diagnostic: if the table ever fails to appear this records
+     * whether the program was bound, what the camera resolved to and whether
+     * GL reported an error, instead of leaving a silently black surface.
+     */
+    private fun logFirstFrame() {
+        if (diagnosticsLogged) return
+        diagnosticsLogged = true
+        android.util.Log.i(
+            TAG,
+            "first frame: ${camera.screenWidth}x${camera.screenHeight} program=${shader.program} " +
+                "world=[${"%.3f".format(camera.worldLeft)}, ${"%.3f".format(camera.worldBottom)} .. " +
+                "${"%.3f".format(camera.worldRight)}, ${"%.3f".format(camera.worldTop)}] " +
+                "balls=${sim.balls.size} glError=${GLES20.glGetError()}",
+        )
     }
 
     private fun normalBlend() = GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)

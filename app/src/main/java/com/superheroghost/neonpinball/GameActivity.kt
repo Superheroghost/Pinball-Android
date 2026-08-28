@@ -20,6 +20,7 @@ import com.superheroghost.neonpinball.game.InputState
 import com.superheroghost.neonpinball.game.ParticleSystem
 import com.superheroghost.neonpinball.game.PinballRenderer
 import com.superheroghost.neonpinball.game.PinballSurfaceView
+import com.superheroghost.neonpinball.game.applySystemBarPadding
 import com.superheroghost.neonpinball.sim.GameSim
 import com.superheroghost.neonpinball.sim.SimEvent
 
@@ -142,6 +143,7 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
                 FrameLayout.LayoutParams.MATCH_PARENT,
             ),
         )
+        overlay.applySystemBarPadding(8f)
     }
 
     fun startNewGame() {
@@ -244,6 +246,7 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
         overlay.addView(button("QUIT") { finish() })
         overlay.tag = PAUSE_TAG
         decor.addView(overlay, params)
+        overlay.applySystemBarPadding(8f)
     }
 
     private fun hidePauseOverlay() {
