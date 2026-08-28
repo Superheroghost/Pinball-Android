@@ -61,6 +61,14 @@ class PinballRenderer(
     /** Visual intensity scale (settings: reduced effects). */
     var fxScale = 1f
 
+    /**
+     * Whether the simulation steps at all. The host clears this while paused
+     * so the world (and its physics bodies) is frozen instead of being
+     * stepped behind the pause overlay.
+     */
+    @Volatile
+    var simRunning = true
+
     /** White flash amount 0..1 (set by game events). */
     var flash = 0f
 
@@ -91,11 +99,17 @@ class PinballRenderer(
     /** Fixed physics stepping (mirrors GameSim but keeps render smooth). */
     val gameLoop = GameLoop(sim)
 
+    /** False if the shader program failed to link; nothing is drawn then. */
+    private var shaderReady = false
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0.008f, 0.010f, 0.020f, 1f)
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glEnable(GLES20.GL_BLEND)
-        shader.compile()
+        shaderReady = shader.compile()
+        if (!shaderReady) {
+            android.util.Log.e("NeonGL", "shader program unavailable; playfield will not render")
+        }
         gameLoop.start()
     }
 
@@ -112,9 +126,14 @@ class PinballRenderer(
         timeS += dt
 
         // Fixed-step the simulation on the render thread (single-threaded
-        // game+render keeps determinism and avoids sync overhead).
-        gameLoop.update(dt)
-        alpha = gameLoop.interpolationAlpha
+        // game+render keeps determinism and avoids sync overhead). While the
+        // host is paused the world is frozen entirely.
+        if (simRunning) {
+            gameLoop.update(dt)
+            alpha = gameLoop.interpolationAlpha
+        } else {
+            alpha = 1f
+        }
         onFrame?.invoke(dt)
 
         camera.update(dt)
@@ -146,6 +165,14 @@ class PinballRenderer(
 
     private fun draw() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        if (!shaderReady) return
+
+        // The program has to be in use and carrying this frame's camera matrix
+        // before anything is batched. glDrawArrays with no program bound is
+        // silently dropped by the driver (GL_INVALID_OPERATION), and an
+        // uninitialised u_matrix collapses every vertex to clip-space zero,
+        // so skipping either one leaves the player staring at the clear colour.
+        shader.use(camera.viewProjMatrix())
 
         drawBackground()
         drawPlayfield()
@@ -351,7 +378,7 @@ class PinballRenderer(
         run {
             val lit = rules.extraBallLit
             val a = if (lit) 0.45f + 0.55f * blink else 0.1f
-            val x = 0.073f
+            val x = 0.078f
             val y = 0.240f
             batch.tri(x, y - 0.008f, x - 0.007f, y + 0.005f, x + 0.007f, y + 0.005f, if (lit) Palette.GOLD_R else Palette.CYAN_R, if (lit) Palette.GOLD_G else Palette.CYAN_G, if (lit) Palette.GOLD_B else Palette.CYAN_B, a)
             batch.tri(x, y - 0.014f, x - 0.007f, y - 0.003f, x + 0.007f, y - 0.003f, if (lit) Palette.GOLD_R else Palette.CYAN_R, if (lit) Palette.GOLD_G else Palette.CYAN_G, if (lit) Palette.GOLD_B else Palette.CYAN_B, a * 0.6f)
@@ -643,14 +670,16 @@ class PinballRenderer(
             batch.flush(shader)
 
             // Body: layered circles to fake a metallic sphere.
+            normalBlend()
             batch.begin()
             batch.circle(x, y, r, 0.42f, 0.47f, 0.55f, 1f, 18)
             batch.circle(x - r * 0.12f, y + r * 0.10f, r * 0.86f, 0.68f, 0.73f, 0.82f, 1f, 16)
             batch.circle(x - r * 0.22f, y + r * 0.24f, r * 0.62f, 0.86f, 0.90f, 0.96f, 1f, 14)
             batch.circle(x - r * 0.34f, y + r * 0.38f, r * 0.30f, 1f, 1f, 1f, 0.95f, 10)
-            // Rim light.
-            additiveBlend()
             batch.flush(shader)
+
+            // Rim light: additive, so it has to be flushed on its own.
+            additiveBlend()
             batch.begin()
             batch.ring(x, y, r * 0.86f, r, 0.75f, 0.92f, 1f, 0.35f * fxScale, 16)
             batch.flush(shader)

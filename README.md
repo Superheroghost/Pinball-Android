@@ -44,13 +44,26 @@ contain zero Android dependencies and are compiled and tested headlessly:
 ./harness/build-app.sh                  # compile-check every app source vs android.jar
 ```
 
+The renderer and HUD have their own headless checks. `build-render.sh` runs the
+*real* `PinballRenderer` against a tiny software rasteriser
+(`harness/android-stubs`) and fails loudly if a frame comes back black —
+exactly the regression class where the driver silently drops draw calls.
+`build-android-jar.sh` packs those stubs into an `android.jar` so
+`build-app.sh` also runs without an Android SDK:
+
+```
+./harness/build-render.sh                    # frame smoke test (writes build/render-frame.ppm)
+./harness/build-render.sh HudInsetsTestMain  # HUD window-inset / rounded-corner checks
+./harness/build-android-jar.sh then-build    # stub android.jar + full-app compile check
+```
+
 (The harness scripts expect local JDK/Kotlinc toolchains under `/home/user/tools`;
 adjust the `TOOLS` env var as needed.)
 
 ## Controls
 
 - Touch left half: left flipper; right half: right flipper.
-- Right edge of the lower screen: pull down and release to launch.
+- LAUNCH button (bottom-right): hold to charge the power meter, release to launch.
 
 ## Ruleset
 

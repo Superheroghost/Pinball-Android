@@ -48,6 +48,18 @@ class GameSession(
 
     fun isPlaying() = phase == Phase.PLAYING
 
+    /**
+     * Thread-safe new-game request from the UI. The sim world must only ever
+     * be mutated on the thread that steps it (the GL thread), so the request
+     * is consumed at the top of [update] instead of resetting bodies here.
+     */
+    @Volatile
+    private var newGameRequested = false
+
+    fun requestNewGame() {
+        newGameRequested = true
+    }
+
     fun startGame() {
         sim.resetAll()
         rules.newGame()
@@ -65,6 +77,11 @@ class GameSession(
     // ------------------------------------------------------------ ticking
 
     fun update(dt: Float) {
+        if (newGameRequested) {
+            newGameRequested = false
+            startGame()
+        }
+
         // Run delayed actions.
         if (delayed.isNotEmpty()) {
             val it = delayed.iterator()

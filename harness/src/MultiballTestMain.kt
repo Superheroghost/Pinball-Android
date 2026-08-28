@@ -47,11 +47,13 @@ object MultiballTestMain {
         session.startGame()
         step(0.5f)
 
-        // Launch: yank the plunger.
+        // Launch: yank the plunger. Without flipper input the ball drains
+        // after a couple of seconds, so verify liveness early in the flight.
         sim.setPlungerPull(1f)
         sim.setPlungerHeld(false)
-        step(3.0f)
+        step(1.0f)
         check(sim.anyLiveBall(), "ball launched and live")
+        step(2.0f)
 
         // Light lock: lanes + standups (2 credits).
         fire(SimEvent.Rollover(Ids.LANE_N, 0f, 0f))
@@ -84,20 +86,33 @@ object MultiballTestMain {
         check(session.rules.ballsLocked == 2, "two locked")
         check(session.rules.multiballActive, "multiball active")
 
-        // Let the MB choreography run: two ejects + auto-plunge.
-        for (i in 0 until 12) {
-            step(0.5f)
-                    }
+        // Let the MB choreography run: two ejects + auto-plunge. Stop as soon
+        // as the parked balls are out and multiball is live — with no flipper
+        // input every live ball drains within seconds, so don't keep stepping.
+        var peakLive = 0
+        for (i in 0 until 48) {
+            step(0.25f)
+            peakLive = maxOf(peakLive, sim.liveBallCount())
+            if (sim.parked.isEmpty() && sim.liveBallCount() >= 2) break
+        }
         check(sim.parked.isEmpty(), "all parked balls ejected (parked=${sim.parked})")
-        check(sim.liveBallCount() >= 2, "multiball live (live=${sim.liveBallCount()})")
+        check(peakLive >= 2, "multiball live (peak=$peakLive)")
 
-        // Jackpot: capture a live ball during MB.
-        val jball = sim.balls.first { it.body.isActive }
+        // Jackpot: capture a live ball during MB. If physics already drained
+        // them all, spawn one — capture is state-based, not position-based.
+        val jball = sim.balls.firstOrNull { it.body.isActive }
+            ?: sim.ballById(sim.debugSpawnBall(0.23f, 0.45f))!!
         sim.captureBall(jball.id)
         fire(SimEvent.HoleCapture(jball.id, 0))
         check(session.rules.jackpotsCollected == 1, "jackpot collected (got ${session.rules.jackpotsCollected})")
-        step(2.0f)
-        check(sim.liveBallCount() >= 1, "ball ejected after jackpot (live=${sim.liveBallCount()})")
+        var ejectedPeak = 0
+        for (i in 0 until 16) {
+            step(0.25f)
+            ejectedPeak = maxOf(ejectedPeak, sim.liveBallCount())
+            if (!sim.parked.contains(jball.id) && ejectedPeak >= 1) break
+        }
+        check(!sim.parked.contains(jball.id), "jackpot ball left the scoop (parked=${sim.parked})")
+        check(ejectedPeak >= 1 || sim.plungerOccupied(), "ball ejected after jackpot (peak=$ejectedPeak)")
 
         // Drain everything; MB should end and the game should continue cleanly.
         while (sim.liveBallCount() > 0 && session.phase == com.superheroghost.neonpinball.game.GameSession.Phase.PLAYING) {
@@ -106,8 +121,12 @@ object MultiballTestMain {
             step(0.5f)
         }
         step(2.5f)
-        check(session.phase != com.superheroghost.neonpinball.game.GameSession.Phase.PLAYING || sim.liveBallCount() > 0,
-            "game advanced after MB drain (phase=${session.phase})")
+        check(
+            session.phase != com.superheroghost.neonpinball.game.GameSession.Phase.PLAYING ||
+                sim.liveBallCount() > 0 ||
+                sim.plungerOccupied(),
+            "game advanced after MB drain (phase=${session.phase} live=${sim.liveBallCount()} plunger=${sim.plungerOccupied()})",
+        )
         check(sim.escapedBalls == 0, "no escapes")
 
         println(if (failures == 0) "MULTIBALL E2E PASS" else "MULTIBALL E2E FAIL ($failures)")

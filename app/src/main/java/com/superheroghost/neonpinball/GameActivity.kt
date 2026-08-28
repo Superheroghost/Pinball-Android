@@ -43,11 +43,13 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
     private var hapticsEnabled = true
     private var soundEnabled = true
 
+    @Volatile
     private var paused = false
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashLog.install(this)
 
         input = InputState()
         sim = GameSim()
@@ -86,14 +88,20 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
         surface.preserveEGLContextOnPause = true
 
         renderer.onFrame = { dt ->
+            // All simulation mutation happens on the GL thread: the renderer
+            // freezes stepping while paused, and the session consumes any
+            // pending new-game request here instead of the UI thread doing it.
+            renderer.simRunning = !paused
             if (!paused) {
                 session.update(dt)
                 controller.frameTick(dt)
             }
+            hud.setPlungerPower(sim.plungerPull)
         }
         controller.attach(renderer)
 
         hud = HudView(this)
+        hud.attachInput(input)
         hud.setHighScore(SettingsStore(this).highScores()[0])
         val root = FrameLayout(this)
         root.addView(surface, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -148,7 +156,9 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
         runOnUiThread {
             hud.showMessage("NEON NEXUS", 1.4f)
         }
-        session.startGame()
+        // Queued here, executed by session.update() on the GL thread — never
+        // mutate the simulation directly from the UI thread.
+        session.requestNewGame()
     }
 
     // ------------------------------------------------------------ feedback
@@ -179,19 +189,33 @@ class GameActivity : android.app.Activity(), GameController.Feedback {
             GameController.HAPTIC_BIG -> 36
             else -> 8
         }
-        if (v.hasVibrator()) {
-            if (Build.VERSION.SDK_INT >= 26) {
-                v.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                v.vibrate(ms.toLong())
+        // Feedback runs on the GL thread inside the sim event pump: a device
+        // vibrator failure must degrade to "no rumble", never a dead game.
+        try {
+            if (v.hasVibrator()) {
+                if (Build.VERSION.SDK_INT >= 26) {
+                    v.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    v.vibrate(ms.toLong())
+                }
             }
+        } catch (t: Throwable) {
+            android.util.Log.w("NeonFx", "haptic failed (kind=$kind)", t)
+            hapticsEnabled = false
         }
     }
 
     override fun sound(kind: Int, param: Float) {
         if (!soundEnabled) return
-        audio?.play(kind, param)
+        // Same rule as haptics: audio runs on the GL thread inside the event
+        // pump and may never take the game down with it.
+        try {
+            audio?.play(kind, param)
+        } catch (t: Throwable) {
+            android.util.Log.w("NeonFx", "sound failed (kind=$kind)", t)
+            soundEnabled = false
+        }
     }
 
     // ------------------------------------------------------------ lifecycle
