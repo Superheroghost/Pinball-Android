@@ -214,9 +214,15 @@ class GeometryBatch(initialCapacityVerts: Int = 8192) {
         circle(x2, y2, width * 0.5f, r, g, b, a, 8)
     }
 
-    /** Draw the batch. Blending mode must already be set. */
+    /** Draw the batch. The program must be in use and blending set. */
     fun flush(shader: VertexColorShader) {
         if (vertexCount == 0) return
+        if (shader.program == 0) {
+            // No linked program: the driver would reject the draw call anyway,
+            // so drop the batch instead of queueing a GL error per flush.
+            vertexCount = 0
+            return
+        }
         buffer.clear()
         buffer.put(floats, 0, vertexCount * 6)
         buffer.position(0)

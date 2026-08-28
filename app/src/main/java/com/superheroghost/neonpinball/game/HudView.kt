@@ -3,8 +3,10 @@ package com.superheroghost.neonpinball.game
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Typeface
+import android.os.Build
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.TextView
 import java.util.Locale
@@ -13,6 +15,11 @@ import java.util.Locale
  * Lightweight HUD overlay drawn with standard Android views on top of the GL
  * surface: score, ball number, message banner. Kept deliberately minimal so
  * it never obscures the playfield.
+ *
+ * On targetSdk 35+ Android enforces edge-to-edge: the content draws under the
+ * status/gesture bars and into the display's rounded corners. The HUD insets
+ * itself in [onApplyWindowInsets] so the corner-anchored labels (the "BALL n"
+ * readout in particular) are never clipped by the screen edge.
  */
 @SuppressLint("ViewConstructor")
 class HudView(context: Context) : FrameLayout(context) {
@@ -24,8 +31,53 @@ class HudView(context: Context) : FrameLayout(context) {
 
     private var messageRunnable: Runnable? = null
 
+    /** Base gutter, in px; system insets are added on top of it. */
+    private val basePad =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, resources.displayMetrics).toInt()
+
+    override fun onApplyWindowInsets(insets: WindowInsets): WindowInsets {
+        val left: Int
+        val top: Int
+        val right: Int
+        val bottom: Int
+        val cornerBottomLeft: Int
+        if (Build.VERSION.SDK_INT >= 30) {
+            val bars = insets.getInsets(
+                WindowInsets.Type.systemBars() or WindowInsets.Type.displayCutout(),
+            )
+            left = bars.left
+            top = bars.top
+            right = bars.right
+            bottom = bars.bottom
+            cornerBottomLeft =
+                insets.getRoundedCorner(WindowInsets.ROUNDED_CORNER_BOTTOM_LEFT)?.radius ?: 0
+        } else {
+            @Suppress("DEPRECATION")
+            left = insets.systemWindowInsetLeft
+            @Suppress("DEPRECATION")
+            top = insets.systemWindowInsetTop
+            @Suppress("DEPRECATION")
+            right = insets.systemWindowInsetRight
+            @Suppress("DEPRECATION")
+            bottom = insets.systemWindowInsetBottom
+            cornerBottomLeft = 0
+        }
+
+        setPadding(basePad + left, basePad + top, basePad + right, basePad + bottom)
+
+        // The ball readout sits in the rounded corner: push it right far enough
+        // that, at its height above the screen bottom, the corner arc cannot
+        // cut into the first glyph. (Horizontal intrusion of a radius-R arc at
+        // height y is at most R - y for y < R.)
+        val labelBottomEdge = bottom + basePad
+        val cornerClearance = (cornerBottomLeft - labelBottomEdge).coerceAtLeast(0)
+        ballView.setPadding(basePad + cornerClearance, basePad, basePad, basePad)
+
+        return super.onApplyWindowInsets(insets)
+    }
+
     init {
-        val pad = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 10f, resources.displayMetrics).toInt()
+        val pad = basePad
 
         scoreView = tv("0", 30f, COLOR_BRIGHT, Typeface.create("sans-serif-condensed", Typeface.BOLD))
         scoreView.setPadding(pad, pad, pad, 0)

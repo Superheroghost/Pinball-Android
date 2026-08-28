@@ -91,11 +91,17 @@ class PinballRenderer(
     /** Fixed physics stepping (mirrors GameSim but keeps render smooth). */
     val gameLoop = GameLoop(sim)
 
+    /** False if the shader program failed to link; nothing is drawn then. */
+    private var shaderReady = false
+
     override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
         GLES20.glClearColor(0.008f, 0.010f, 0.020f, 1f)
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glEnable(GLES20.GL_BLEND)
-        shader.compile()
+        shaderReady = shader.compile()
+        if (!shaderReady) {
+            android.util.Log.e("NeonGL", "shader program unavailable; playfield will not render")
+        }
         gameLoop.start()
     }
 
@@ -146,6 +152,14 @@ class PinballRenderer(
 
     private fun draw() {
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
+        if (!shaderReady) return
+
+        // The program has to be in use and carrying this frame's camera matrix
+        // before anything is batched. glDrawArrays with no program bound is
+        // silently dropped by the driver (GL_INVALID_OPERATION), and an
+        // uninitialised u_matrix collapses every vertex to clip-space zero,
+        // so skipping either one leaves the player staring at the clear colour.
+        shader.use(camera.viewProjMatrix())
 
         drawBackground()
         drawPlayfield()
@@ -643,14 +657,16 @@ class PinballRenderer(
             batch.flush(shader)
 
             // Body: layered circles to fake a metallic sphere.
+            normalBlend()
             batch.begin()
             batch.circle(x, y, r, 0.42f, 0.47f, 0.55f, 1f, 18)
             batch.circle(x - r * 0.12f, y + r * 0.10f, r * 0.86f, 0.68f, 0.73f, 0.82f, 1f, 16)
             batch.circle(x - r * 0.22f, y + r * 0.24f, r * 0.62f, 0.86f, 0.90f, 0.96f, 1f, 14)
             batch.circle(x - r * 0.34f, y + r * 0.38f, r * 0.30f, 1f, 1f, 1f, 0.95f, 10)
-            // Rim light.
-            additiveBlend()
             batch.flush(shader)
+
+            // Rim light: additive, so it has to be flushed on its own.
+            additiveBlend()
             batch.begin()
             batch.ring(x, y, r * 0.86f, r, 0.75f, 0.92f, 1f, 0.35f * fxScale, 16)
             batch.flush(shader)
